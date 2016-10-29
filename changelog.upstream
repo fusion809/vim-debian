@@ -1,0 +1,48 @@
+Patches for Vim - Vi IMproved 8.0
+
+The files in this directory contain source code changes to fix problems
+in a released version of Vim.  Each file also contains an explanation of
+the problem that is fixed, like the message that was sent to the vim-dev
+maillist.
+
+The best is to apply the patches in sequence.  This avoids problems when
+a patch depends on a previous patch. 
+
+Before patching, change to the top Vim directory, where the "src" and
+"runtime" directories are located.
+Depending on the version of "patch" that you use, you may have add an
+argument to make it patch the right file:
+        patch -p < 8.0.0001
+        patch -p0 < 8.0.0001
+
+After applying a patch, you need to compile Vim.  There are no patches
+for binaries.
+
+Checksums for the patch files can be found in the file MD5SUMS.
+
+
+Individual patches for Vim 8.0:
+
+  SIZE  NAME      FIXES
+  2886  8.0.0001  intro screen still mentions version7
+  1864  8.0.0002  the netrw plugin does not work
+  2835  8.0.0003  getwinvar() returns wrong Value of boolean and number options
+  2662  8.0.0004  error messagge of function() with wrong argument says NULL
+  1871  8.0.0005  netbeans test fails with Python 3
+  1936  8.0.0006  ":lb" is interpreted as ":lbottom" instead of ":lbuffer"
+  7370  8.0.0007  Vim 7.4 is still mentioned in a few places
+  2527  8.0.0008  popup complete test is disabled
+  1673  8.0.0009  unnecessary workaround for AppVeyor
+  3230  8.0.0010  crash when editing file that starts with crypt header
+  1577  8.0.0011  on OSX Test_pipe_through_sort_all() sometimes fails
+  7754  8.0.0012  typos in comments
+  2257  8.0.0013  (after 8.0.0011) missing comma in list
+  9516  8.0.0014  crypt tests are old style
+ 12101  8.0.0015  can't tell which part of a channel has "buffered" status
+  1579  8.0.0016  (after 8.0.0015) build fails
+  4451  8.0.0017  cannot get the number of current quickfix or location list
+  8819  8.0.0018  when using ":sleep" channel input is not handled
+ 14106  8.0.0019  test_command_count is old style
+ 86459  8.0.0020  the regexp engines are not reentrant
+  1734  8.0.0021  GUI: cursor may be drawn on second half of double byte char
+  5008  8.0.0022  if channel is missing final NL remaining chars are dropped

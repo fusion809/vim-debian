@@ -1,0 +1,186 @@
+Description: <short summary of the patch>
+ TODO: Put a short summary on the line above and replace this paragraph
+ with a longer explanation of this change. Complete the meta-information
+ with other relevant fields (see below for details). To make it easier, the
+ information below has been extracted from the changelog. Adjust it or drop
+ it.
+ .
+ vim (2:8.0.0054-0york1~16.04) xenial; urgency=medium
+ .
+   [ upstream ]
+   * v8.0.0.54: ?
+   * v8.0.0.51: Revert new code for job_stop() breaks channel test on AppVeyor.
+   * v8.0.0.50: Check for pending job more often. (Ozaki Kiichi)  Change the
+                double loop in mch_inchar() into one.
+   * v8.0.0.49: Do not reset prev_syntax_id and add a test to verify. (Christian
+                Brabandt, closes #1092)
+   * v8.0.0.48: Iterate over all processes and terminate the one where the parent
+                is the job process. (Yasuhiro Matsumoto, closes #1184)
+   * v8.0.0.47: Do not clear the wrong buffer. (closes #1200)
+   * v8.0.0.46: Change to NULL. (Dominique Pelle)
+Author: Jonathon Fernyhough <jonathon.fernyhough@york.ac.uk>
+
+---
+The information above should follow the Patch Tagging Guidelines, please
+checkout http://dep.debian.net/deps/dep3/ to learn about the format. Here
+are templates for supplementary fields that you might want to add:
+
+Origin: <vendor|upstream|other>, <url of original patch>
+Bug: <url in upstream bugtracker>
+Bug-Debian: https://bugs.debian.org/<bugnumber>
+Bug-Ubuntu: https://launchpad.net/bugs/<bugnumber>
+Forwarded: <no|not-needed|url proving that it has been forwarded>
+Reviewed-By: <name and email of someone who approved the patch>
+Last-Update: <YYYY-MM-DD>
+
+--- vim-8.0.0054.orig/runtime/doc/options.txt
++++ vim-8.0.0054/runtime/doc/options.txt
+@@ -5122,7 +5122,7 @@ A jump table for the options with a shor
+ 
+ 				   *'modeline'* *'ml'* *'nomodeline'* *'noml'*
+ 'modeline' 'ml'		boolean	(Vim default: on (off for root),
+-				 Debian: off, Vi default: off)
++				 Vi default: off)
+ 			local to buffer
+ 						*'modelines'* *'mls'*
+ 'modelines' 'mls'	number	(default 5)
+--- vim-8.0.0054.orig/runtime/filetype.vim
++++ vim-8.0.0054/runtime/filetype.vim
+@@ -2221,7 +2221,7 @@ func! s:FTtex()
+     call cursor(1,1)
+     let firstNC = search('^\s*[^[:space:]%]', 'c', 1000)
+     if firstNC " Check the next thousand lines for a LaTeX or ConTeXt keyword.
+-      let lpat = 'documentclass\>\|usepackage\>\|begin{\|newcommand\>\|renewcommand\>\|part\>\|chapter\>\|section\>\|subsection\>\|subsubsection\>\|paragraph\>\|subparagraph\>\|subsubparagraph'
++      let lpat = 'documentclass\>\|usepackage\>\|begin{\|newcommand\>\|renewcommand\>'
+       let cpat = 'start\a\+\|setup\a\+\|usemodule\|enablemode\|enableregime\|setvariables\|useencoding\|usesymbols\|stelle\a\+\|verwende\a\+\|stel\a\+\|gebruik\a\+\|usa\a\+\|imposta\a\+\|regle\a\+\|utilisemodule\>'
+       let kwline = search('^\s*\\\%(' . lpat . '\)\|^\s*\\\(' . cpat . '\)',
+ 			      \ 'cnp', firstNC + 1000)
+--- vim-8.0.0054.orig/runtime/scripts.vim
++++ vim-8.0.0054/runtime/scripts.vim
+@@ -332,14 +332,6 @@ else
+   elseif s:line1 =~ 'exec\s\+\S*scheme' || s:line2 =~ 'exec\s\+\S*scheme'
+     set ft=scheme
+ 
+-  " rst files
+-  elseif s:line1 =~ '^\.\.\s\|^\s*restindex\s*$'
+-	\ || s:line2 =~ '^\.\.\s\|^\s*restindex\s*$'
+-	\ || s:line3 =~ '^\.\.\s\|^\s*restindex\s*$'
+-	\ || s:line4 =~ '^\.\.\s\|^\s*restindex\s*$'
+-	\ || s:line5 =~ '^\.\.\s\|^\s*restindex\s*$'
+-    set ft=rst
+-
+   " Git output
+   elseif s:line1 =~ '^\(commit\|tree\|object\) \x\{40\}\>\|^tag \S\+$'
+     set ft=git
+--- vim-8.0.0054.orig/src/config.h.in
++++ vim-8.0.0054/src/config.h.in
+@@ -30,9 +30,6 @@
+ /* Define when __DATE__ " " __TIME__ can be used */
+ #undef HAVE_DATE_TIME
+ 
+-/* Defined as the date of last modification */
+-#undef BUILD_DATE
+-
+ /* Define when __attribute__((unused)) can be used */
+ #undef HAVE_ATTRIBUTE_UNUSED
+ 
+--- vim-8.0.0054.orig/src/configure.in
++++ vim-8.0.0054/src/configure.in
+@@ -29,16 +29,6 @@ dnl in autoconf needs it, where it uses
+ AC_HEADER_STDC
+ AC_HEADER_SYS_WAIT
+ 
+-dnl If $SOURCE_DATE_EPOCH is present in the environment, use that as the
+-dnl "compiled" timestamp in :version's output.  Attempt to get the formatted
+-dnl date using GNU date syntax, BSD date syntax, and finally falling back to
+-dnl just using the current time.
+-if test -n "$SOURCE_DATE_EPOCH"; then
+-  DATE_FMT="%b %d %Y %H:%M:%S"
+-  BUILD_DATE=$(LC_ALL=C date -u -d "@$SOURCE_DATE_EPOCH" "+$DATE_FMT" 2>/dev/null || LC_ALL=C date -u -r "$SOURCE_DATE_EPOCH" "+$DATE_FMT" 2>/dev/null || LC_ALL=C date -u "+$DATE_FMT")
+-  AC_DEFINE_UNQUOTED(BUILD_DATE, ["$BUILD_DATE"])
+-fi
+-
+ dnl Check for the flag that fails if stuff are missing.
+ 
+ AC_MSG_CHECKING(--enable-fail-if-missing argument)
+--- vim-8.0.0054.orig/src/main.c
++++ vim-8.0.0054/src/main.c
+@@ -1729,10 +1729,6 @@ parse_command_name(mparm_T *parmp)
+     }
+     else if (STRNICMP(initstr, "vim", 3) == 0)
+ 	initstr += 3;
+-#ifdef SYS_TINYRC_FILE
+-    else if (STRNICMP(initstr, "vi", 2) == 0)
+-	parmp->vi_mode = TRUE;
+-#endif
+ 
+     /* Catch "[r][g]vimdiff" and "[r][g]viewdiff". */
+     if (STRICMP(initstr, "diff") == 0)
+@@ -2971,12 +2967,7 @@ source_startup_scripts(mparm_T *parmp)
+ 	 * Get system wide defaults, if the file name is defined.
+ 	 */
+ #ifdef SYS_VIMRC_FILE
+-# if defined(SYS_TINYRC_FILE) && defined(TINY_VIMRC)
+-	if (parmp->vi_mode)
+-	    (void)do_source((char_u *)SYS_TINYRC_FILE, FALSE, DOSO_NONE);
+-	else
+-# endif
+-	    (void)do_source((char_u *)SYS_VIMRC_FILE, FALSE, DOSO_NONE);
++	(void)do_source((char_u *)SYS_VIMRC_FILE, FALSE, DOSO_NONE);
+ #endif
+ #ifdef MACOS_X
+ 	(void)do_source((char_u *)"$VIMRUNTIME/macmap.vim", FALSE, DOSO_NONE);
+@@ -3012,9 +3003,6 @@ source_startup_scripts(mparm_T *parmp)
+ #ifdef USR_EXRC_FILE2
+ 		&& do_source((char_u *)USR_EXRC_FILE2, FALSE, DOSO_NONE) == FAIL
+ #endif
+-#if defined(SYS_TINYRC_FILE) && defined(TINY_VIMRC)
+-		&& !parmp->vi_mode
+-#endif
+ 		&& !has_dash_c_arg)
+ 	    {
+ 		/* When no .vimrc file was found: source defaults.vim. */
+--- vim-8.0.0054.orig/src/os_unix.h
++++ vim-8.0.0054/src/os_unix.h
+@@ -217,9 +217,6 @@ typedef struct dsc$descriptor   DESC;
+ /*
+  * Unix system-dependent file names
+  */
+-#ifndef SYS_TINYRC_FILE
+-# define SYS_TINYRC_FILE "$VIM/vimrc.tiny"
+-#endif
+ #ifndef SYS_VIMRC_FILE
+ # define SYS_VIMRC_FILE "$VIM/vimrc"
+ #endif
+--- vim-8.0.0054.orig/src/structs.h
++++ vim-8.0.0054/src/structs.h
+@@ -3252,9 +3252,6 @@ typedef struct
+ #ifdef FEAT_DIFF
+     int		diff_mode;		/* start with 'diff' set */
+ #endif
+-#ifdef SYS_TINYRC_FILE
+-    int		vi_mode;		/* started as "vi" */
+-#endif
+ } mparm_T;
+ 
+ /*
+--- vim-8.0.0054.orig/src/version.c
++++ vim-8.0.0054/src/version.c
+@@ -44,17 +44,11 @@ make_version(void)
+      * VAX C can't catenate strings in the preprocessor.
+      */
+     strcpy(longVersion, VIM_VERSION_LONG_DATE);
+-#ifdef BUILD_DATE
+-    strcat(longVersion, BUILD_DATE);
+-#else
+     strcat(longVersion, __DATE__);
+     strcat(longVersion, " ");
+     strcat(longVersion, __TIME__);
+-#endif
+     strcat(longVersion, ")");
+ }
+-# elif defined(BUILD_DATE)
+-char	*longVersion = VIM_VERSION_LONG_DATE BUILD_DATE ")";
+ # else
+ char	*longVersion = VIM_VERSION_LONG_DATE __DATE__ " " __TIME__ ")";
+ # endif
